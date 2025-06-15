@@ -8,7 +8,7 @@ use std::{
 };
 use regex::Regex;
 use rustyline::error::ReadlineError;
-use rustyline::{config, DefaultEditor, Result as RlResult};
+use rustyline::{DefaultEditor, Result as RlResult};
 use serde::{Deserialize, Serialize};
 use walkdir::WalkDir;
 
@@ -57,7 +57,7 @@ fn main() -> RlResult<()> {
         .get(selection as usize - 1)
         .expect("Invalid Selection");
 
-    println!("{}", selection_dir);
+    println!("{}\n", selection_dir);
 
     let copy_src = Path::new(&config.settings.source_dir).join(selection_dir);
     let mut copy_dest = Path::new(&config.settings.destination_dir).to_path_buf();
@@ -70,7 +70,7 @@ fn main() -> RlResult<()> {
             .readline_with_initial("Destination: ", (&suggestion, ""))
             .unwrap_or_default();
 
-        println!("{}", user_input);
+        println!("{}\n", user_input);
 
         config.mapping.insert(selection_dir.to_string(), user_input.clone());
         config.write_file(CONFIG_PATH).expect("Failed to update config. (No files have been copied)");
@@ -80,15 +80,51 @@ fn main() -> RlResult<()> {
         copy_dest = copy_dest.join(&config.mapping[selection_dir]);
     }
 
-    println!("{} -> {}", copy_src.to_string_lossy(), copy_dest.to_string_lossy());
+    println!("Contents:");
+    list_folder_contents(&copy_src).expect("Failed to read source.").iter().for_each(|f| println!(" - {}", f));
+    println!("\nSelect Extensions to copy:");
+
+    let options = [
+        format!("Video     - [{}]", VIDEO_EXTS.join(", ")), 
+        format!("Subtitles - [{}]", SUBTITLE_EXTS.join(", ")), 
+        format!("Both      - [{}, {}]", VIDEO_EXTS.join(", "), SUBTITLE_EXTS.join(", ")), 
+        "Any       - [*]".to_string()];
+    let selection: u32 = stdin_input(&options)?;
+    if selection == 0 {
+        println!("Bye.");
+        exit(0);
+    }
     
+    println!("{} -> {}", copy_src.to_string_lossy(), copy_dest.to_string_lossy());
+
     filtered_clone_dir(
         &copy_src,
         &copy_dest,
-        |ext| VIDEO_EXTS.contains(&ext),
-    )?;    
+        match selection {
+            1 => |ext: &str| VIDEO_EXTS.contains(&ext),
+            2 => |ext: &str| SUBTITLE_EXTS.contains(&ext),
+            3 => |ext: &str| VIDEO_EXTS.contains(&ext) || SUBTITLE_EXTS.contains(&ext),
+            _ => |_ext: &str| true, 
+        }
+    )?;
+  
     
+    println!("Copy Success!");
+
     Ok(())
+}
+
+fn list_folder_contents(dir: &Path) -> io::Result<Vec<String>> {
+    let mut entries = Vec::new();
+
+    for entry_result in fs::read_dir(dir)? {
+        let entry = entry_result?;
+        if let Some(name) = entry.file_name().to_str() {
+            entries.push(name.to_string());
+        }
+    }
+
+    Ok(entries)
 }
 
 fn stdin_input(options: &[String]) -> RlResult<u32> {
