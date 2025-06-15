@@ -40,7 +40,12 @@ fn main() -> RlResult<()> {
         .iter()
         .map(|f| {
             if config.mapping.contains_key(f) {
-                format!("*{} ({})", f, config.mapping[f].to_string())
+                let map = config.mapping[f].to_string();
+                if &map != f {
+                    format!("*{} ({})", f, map)
+                }else{
+                    format!("*{}", f)
+                }
             } else {
                 f.clone()
             }
