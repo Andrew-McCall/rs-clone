@@ -36,7 +36,7 @@ fn main() -> RlResult<()> {
         exit(0);
     }
 
-    let file_menu = source_files
+    let mut file_menu = source_files
         .iter()
         .map(|f| {
             if config.mapping.contains_key(f) {
@@ -51,6 +51,8 @@ fn main() -> RlResult<()> {
             }
         })
         .collect::<Vec<String>>();
+
+    file_menu.sort();
 
     let selection: u32 = stdin_input(&file_menu)?;
     if selection == 0 {
