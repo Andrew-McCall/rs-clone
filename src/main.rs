@@ -25,7 +25,7 @@ fn main() -> RlResult<()> {
         exit(1);
     });
 
-    let source_files = read_filenames(&config.settings.source_dir)
+    let mut source_files = read_filenames(&config.settings.source_dir)
         .unwrap_or_else(|_| {
             eprintln!("Failed to read Source Directory");
             exit(1);
@@ -36,7 +36,9 @@ fn main() -> RlResult<()> {
         exit(0);
     }
 
-    let mut file_menu = source_files
+    source_files.sort();
+
+    let file_menu = source_files
         .iter()
         .map(|f| {
             if config.mapping.contains_key(f) {
@@ -51,8 +53,6 @@ fn main() -> RlResult<()> {
             }
         })
         .collect::<Vec<String>>();
-
-    file_menu.sort();
 
     let selection: u32 = stdin_input(&file_menu)?;
     if selection == 0 {
