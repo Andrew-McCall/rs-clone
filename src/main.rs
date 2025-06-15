@@ -40,7 +40,7 @@ fn main() -> RlResult<()> {
         .iter()
         .map(|f| {
             if config.mapping.contains_key(f) {
-                format!("*{}", f)
+                format!("*{} ({})", f, config.mapping[f].to_string())
             } else {
                 f.clone()
             }
@@ -77,7 +77,30 @@ fn main() -> RlResult<()> {
 
         copy_dest = copy_dest.join(&user_input);
     }else{
-        copy_dest = copy_dest.join(&config.mapping[selection_dir]);
+       let suggestion = config.mapping[selection_dir].to_string();
+
+        let mut rl = DefaultEditor::new()?;
+        let user_input = rl
+            .readline_with_initial("Destination: ", (&suggestion, ""))
+            .unwrap_or_default();
+
+        copy_dest = copy_dest.join(&user_input);
+
+        if suggestion != user_input {
+            let mv_src = Path::new(&config.settings.destination_dir).join(suggestion);
+
+            println!("{} -> {}", mv_src.to_string_lossy(), copy_dest.to_string_lossy());
+            fs::rename(
+                mv_src,
+                &copy_dest,
+            )?;
+
+            println!("(Move Successful)\n");
+
+            config.mapping.remove(selection_dir);
+            config.mapping.insert(selection_dir.to_string(), user_input.clone());
+            config.write_file(CONFIG_PATH).expect("Failed to update config. (No files have been copied)");
+        }
     }
 
     println!("Contents:");
@@ -88,12 +111,8 @@ fn main() -> RlResult<()> {
         format!("Video     - [{}]", VIDEO_EXTS.join(", ")), 
         format!("Subtitles - [{}]", SUBTITLE_EXTS.join(", ")), 
         format!("Both      - [{}, {}]", VIDEO_EXTS.join(", "), SUBTITLE_EXTS.join(", ")), 
-        "Any       - [*]".to_string()];
+        "Any       - [*] (DEFAULT)".to_string()];
     let selection: u32 = stdin_input(&options)?;
-    if selection == 0 {
-        println!("Bye.");
-        exit(0);
-    }
     
     println!("{} -> {}", copy_src.to_string_lossy(), copy_dest.to_string_lossy());
 
@@ -139,8 +158,7 @@ fn stdin_input(options: &[String]) -> RlResult<u32> {
             Ok(line) => {
                 let choice: u32 = line.trim().parse().unwrap_or(0);
                 if choice == 0 || choice as usize > options.len() {
-                    println!("Invalid choice, try again.");
-                    continue;
+                    return Ok(0);
                 }
                 return Ok(choice);
             }
