@@ -56,8 +56,7 @@ fn main() -> RlResult<()> {
 
     let selection: u32 = stdin_input(&file_menu)?;
     if selection == 0 {
-        println!("Bye.");
-        exit(0);
+        quit();
     }
 
     let selection_dir = source_files
@@ -77,6 +76,10 @@ fn main() -> RlResult<()> {
             .readline_with_initial("Destination: ", (&suggestion, ""))
             .unwrap_or_default();
 
+        if user_input.is_empty(){
+            quit();
+        }
+        
         println!("{}\n", user_input);
 
         config.mapping.insert(selection_dir.to_string(), user_input.clone());
@@ -90,6 +93,10 @@ fn main() -> RlResult<()> {
         let user_input = rl
             .readline_with_initial("Destination: ", (&suggestion, ""))
             .unwrap_or_default();
+        
+        if user_input.is_empty(){
+            quit();
+        }
 
         copy_dest = copy_dest.join(&user_input);
 
@@ -140,6 +147,11 @@ fn main() -> RlResult<()> {
     Ok(())
 }
 
+fn quit(){
+    println!("Bye.");
+    exit(1);
+}
+
 fn list_folder_contents(dir: &Path) -> io::Result<Vec<String>> {
     let mut entries = Vec::new();
 
@@ -171,15 +183,15 @@ fn stdin_input(options: &[String]) -> RlResult<u32> {
             }
             Err(ReadlineError::Interrupted) => {
                 println!("CTRL-C");
-                return Ok(0);
+                quit();
             }
             Err(ReadlineError::Eof) => {
                 println!("CTRL-D");
-                return Ok(0);
+                quit();
             }
             Err(err) => {
                 println!("Error: {:?}", err);
-                return Ok(0);
+                quit();
             }
         }
     }
