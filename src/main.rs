@@ -69,7 +69,7 @@ fn main() -> RlResult<()> {
     let mut copy_dest = Path::new(&config.settings.destination_dir).to_path_buf();
 
     if !config.mapping.contains_key(selection_dir) {
-        let suggestion = clean_filename(selection_dir);
+        let suggestion = clean_filename(selection_dir).replace(" ", ".");
 
         let mut rl = DefaultEditor::new()?;
         let user_input = rl
