@@ -1,15 +1,9 @@
-use std::io;
-use std::{
-    collections::HashMap,
-    fs,
-    path::Path,
-    process::exit,
-    error::Error,
-};
 use regex::Regex;
 use rustyline::error::ReadlineError;
 use rustyline::{DefaultEditor, Result as RlResult};
 use serde::{Deserialize, Serialize};
+use std::io;
+use std::{collections::HashMap, error::Error, fs, path::Path, process::exit};
 use walkdir::WalkDir;
 
 type MyResult<T> = std::result::Result<T, Box<dyn Error>>;
@@ -18,18 +12,16 @@ const CONFIG_PATH: &str = ".rs-clone.conf";
 const VIDEO_EXTS: [&str; 7] = ["mp4", "mkv", "avi", "mov", "flv", "wmv", "webm"];
 const SUBTITLE_EXTS: [&str; 5] = ["srt", "ass", "vtt", "sub", "ssa"];
 
-
 fn main() -> RlResult<()> {
     let mut config = Config::read_file(CONFIG_PATH).unwrap_or_else(|e| {
         eprintln!("Error reading config ({}):\n{}", CONFIG_PATH, e);
         exit(1);
     });
 
-    let mut source_files = read_filenames(&config.settings.source_dir)
-        .unwrap_or_else(|_| {
-            eprintln!("Failed to read Source Directory");
-            exit(1);
-        });
+    let mut source_files = read_filenames(&config.settings.source_dir).unwrap_or_else(|_| {
+        eprintln!("Failed to read Source Directory");
+        exit(1);
+    });
 
     if source_files.is_empty() {
         println!("No Source Files, Quitting...");
@@ -38,14 +30,14 @@ fn main() -> RlResult<()> {
 
     source_files.sort();
 
-    let file_menu = source_files
+    let mut file_menu = source_files
         .iter()
         .map(|f| {
             if config.mapping.contains_key(f) {
                 let map = config.mapping[f].to_string();
                 if &map != f {
                     format!("*{} ({})", f, map)
-                }else{
+                } else {
                     format!("*{}", f)
                 }
             } else {
@@ -53,6 +45,14 @@ fn main() -> RlResult<()> {
             }
         })
         .collect::<Vec<String>>();
+
+    let selection = stdin_input(&["Show Processed".to_owned(), "Hide Processed".to_owned()])?;
+    if selection != 1 {
+        file_menu = file_menu
+            .into_iter()
+            .filter(|s| !s.starts_with("*"))
+            .collect::<Vec<String>>();
+    }
 
     let selection: u32 = stdin_input(&file_menu)?;
     if selection == 0 {
@@ -76,25 +76,29 @@ fn main() -> RlResult<()> {
             .readline_with_initial("Destination: ", (&suggestion, ""))
             .unwrap_or_default();
 
-        if user_input.is_empty(){
+        if user_input.is_empty() {
             quit();
         }
-        
+
         println!("{}\n", user_input);
 
-        config.mapping.insert(selection_dir.to_string(), user_input.clone());
-        config.write_file(CONFIG_PATH).expect("Failed to update config. (No files have been copied)");
+        config
+            .mapping
+            .insert(selection_dir.to_string(), user_input.clone());
+        config
+            .write_file(CONFIG_PATH)
+            .expect("Failed to update config. (No files have been copied)");
 
         copy_dest = copy_dest.join(&user_input);
-    }else{
-       let suggestion = config.mapping[selection_dir].to_string();
+    } else {
+        let suggestion = config.mapping[selection_dir].to_string();
 
         let mut rl = DefaultEditor::new()?;
         let user_input = rl
             .readline_with_initial("Destination: ", (&suggestion, ""))
             .unwrap_or_default();
-        
-        if user_input.is_empty(){
+
+        if user_input.is_empty() {
             quit();
         }
 
@@ -103,32 +107,49 @@ fn main() -> RlResult<()> {
         if suggestion != user_input {
             let mv_src = Path::new(&config.settings.destination_dir).join(suggestion);
 
-            println!("{} -> {}", mv_src.to_string_lossy(), copy_dest.to_string_lossy());
-            fs::rename(
-                mv_src,
-                &copy_dest,
-            )?;
+            println!(
+                "{} -> {}",
+                mv_src.to_string_lossy(),
+                copy_dest.to_string_lossy()
+            );
+            fs::rename(mv_src, &copy_dest)?;
 
             println!("(Move Successful)\n");
 
             config.mapping.remove(selection_dir);
-            config.mapping.insert(selection_dir.to_string(), user_input.clone());
-            config.write_file(CONFIG_PATH).expect("Failed to update config. (No files have been copied)");
+            config
+                .mapping
+                .insert(selection_dir.to_string(), user_input.clone());
+            config
+                .write_file(CONFIG_PATH)
+                .expect("Failed to update config. (No files have been copied)");
         }
     }
 
     println!("Contents:");
-    list_folder_contents(&copy_src).expect("Failed to read source.").iter().for_each(|f| println!(" - {}", f));
+    list_folder_contents(&copy_src)
+        .expect("Failed to read source.")
+        .iter()
+        .for_each(|f| println!(" - {}", f));
     println!("\nSelect Extensions to copy:");
 
     let options = [
-        format!("Video     - [{}]", VIDEO_EXTS.join(", ")), 
-        format!("Subtitles - [{}]", SUBTITLE_EXTS.join(", ")), 
-        format!("Both      - [{}, {}]", VIDEO_EXTS.join(", "), SUBTITLE_EXTS.join(", ")), 
-        "Any       - [*] (DEFAULT)".to_string()];
+        format!("Video     - [{}]", VIDEO_EXTS.join(", ")),
+        format!("Subtitles - [{}]", SUBTITLE_EXTS.join(", ")),
+        format!(
+            "Both      - [{}, {}]",
+            VIDEO_EXTS.join(", "),
+            SUBTITLE_EXTS.join(", ")
+        ),
+        "Any       - [*] (DEFAULT)".to_string(),
+    ];
     let selection: u32 = stdin_input(&options)?;
-    
-    println!("{} -> {}", copy_src.to_string_lossy(), copy_dest.to_string_lossy());
+
+    println!(
+        "{} -> {}",
+        copy_src.to_string_lossy(),
+        copy_dest.to_string_lossy()
+    );
 
     filtered_clone_dir(
         &copy_src,
@@ -137,17 +158,16 @@ fn main() -> RlResult<()> {
             1 => |ext: &str| VIDEO_EXTS.contains(&ext),
             2 => |ext: &str| SUBTITLE_EXTS.contains(&ext),
             3 => |ext: &str| VIDEO_EXTS.contains(&ext) || SUBTITLE_EXTS.contains(&ext),
-            _ => |_ext: &str| true, 
-        }
+            _ => |_ext: &str| true,
+        },
     )?;
-  
-    
+
     println!("Copy Success!");
 
     Ok(())
 }
 
-fn quit(){
+fn quit() {
     println!("Bye.");
     exit(1);
 }
