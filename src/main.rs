@@ -30,7 +30,19 @@ fn main() -> RlResult<()> {
 
     source_files.sort();
 
-    let mut file_menu = source_files
+    let hide_processed = stdin_input(&[
+        "Hide Processed (Default)".to_owned(),
+        "Show Processed".to_owned(),
+    ])? <= 1;
+
+    if hide_processed {
+        source_files = source_files
+            .into_iter()
+            .filter(|f| !config.mapping.contains_key(f))
+            .collect();
+    }
+
+    let file_menu = source_files
         .iter()
         .map(|f| {
             if config.mapping.contains_key(f) {
@@ -45,14 +57,6 @@ fn main() -> RlResult<()> {
             }
         })
         .collect::<Vec<String>>();
-
-    let selection = stdin_input(&["Show Processed".to_owned(), "Hide Processed".to_owned()])?;
-    if selection != 1 {
-        file_menu = file_menu
-            .into_iter()
-            .filter(|s| !s.starts_with("*"))
-            .collect::<Vec<String>>();
-    }
 
     let selection: u32 = stdin_input(&file_menu)?;
     if selection == 0 {
