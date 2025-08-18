@@ -35,14 +35,15 @@ fn main() -> RlResult<()> {
         "Show Processed".to_owned(),
     ])? <= 1;
 
-    if hide_processed {
-        source_files = source_files
+    let file_menu = if hide_processed {
+        let temp: Vec<_> = source_files
             .into_iter()
             .filter(|f| !config.mapping.contains_key(f))
             .collect();
-    }
-
-    let file_menu = source_files
+        source_files = temp.clone();
+        temp
+    }else{
+        source_files
         .iter()
         .map(|f| {
             if config.mapping.contains_key(f) {
@@ -56,7 +57,8 @@ fn main() -> RlResult<()> {
                 f.clone()
             }
         })
-        .collect::<Vec<String>>();
+        .collect::<Vec<String>>()
+    };
 
     let selection: u32 = stdin_input(&file_menu)?;
     if selection == 0 {
